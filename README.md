@@ -1,2 +1,2 @@
 # shazam
-data - directory with wav songs is needed. It's too large for github.
+Potrebno je kreirati direktorijum data koji ce predstavljati bazu pesama.
