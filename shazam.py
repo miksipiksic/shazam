@@ -4,11 +4,11 @@ import os
 import wave
 
 
-def findFeatures(file, trim=False): # izvlacenje specificnih karakteristika pesme
+def findFeatures(file, trim=False): # find specific featuers of a song
 
-    # ucitavanje pesme
+    #load a song
     wav_obj = wave.open(file, 'rb')
-    Fs = wav_obj.getframerate() # odabirci po sekundi
+    Fs = wav_obj.getframerate() # samples per second
     n_samples = wav_obj.getnframes()
 
     signal_wave = wav_obj.readframes(n_samples)
@@ -18,22 +18,22 @@ def findFeatures(file, trim=False): # izvlacenje specificnih karakteristika pesm
     window_length_samples = int(window_length_seconds * Fs)
     window_length_samples += window_length_samples % 2
 
-    # furijeova transformacija
+    # fourier transform
     frequencies, times, stft = signal.stft(
         song, Fs, nperseg=window_length_samples,
         nfft=window_length_samples, return_onesided=True
     )
     num_peaks = 10
-    fmax = 4000 # u pesmama uglavnom varira do ove frekvencije
+    fmax = 4000 # this frequency usually occurs in songs
     freq_slice = np.where((frequencies >= 0) & (frequencies <= fmax))
     frequencies = frequencies[freq_slice]
     stft = stft[freq_slice,:][0]
     constellation_map = []
     for time_idx, window in enumerate(stft.T):
-        if(trim and time_idx >= 20): break # da ne racuna sve za odsecke
-        spectrum = abs(window) # posto je sprektum kompleksan
+        if(trim and time_idx >= 20): break # dont count for every sample
+        spectrum = abs(window) # spectrum numbers are complex
         peaks, props = signal.find_peaks(spectrum, prominence=0, distance=200)
-        # izabrao sam 10 pikova po vremenskom odabiru
+        # 10 peaks per sample
         n_peaks = min(num_peaks, len(peaks))
         if(n_peaks != 10): continue
         largest_peaks = np.argpartition(props["prominences"], -n_peaks)[-n_peaks:]
@@ -46,17 +46,17 @@ def findFeatures(file, trim=False): # izvlacenje specificnih karakteristika pesm
         collumn = []
         for j in range(num_peaks):
             f = constellation_map[i+j][1]
-            # zaokruzivanje vrednosti frekvencija
+            # round the values
             mod25 = f % 25
             mod50 = f % 50
             if(mod50 >= 25): collumn.append(int(f+25-mod25))
             else: collumn.append(int(f-mod25))
         features.append(sorted(collumn))
-    print("Ucitano: " + file)
+    print("Loaded: " + file)
     return features
 
 
-def Matching(mat, submat): # prolazak da li je isecak priblizno jednak nekom delu pesme
+def Matching(mat, submat): # is there a match
     m_len = len(mat)
     sm_len = len(submat)
     cntmax = 0
@@ -67,21 +67,20 @@ def Matching(mat, submat): # prolazak da li je isecak priblizno jednak nekom del
                 if (abs(mat[i+si][j]- submat[si][j]) <=  50):
                     cnt = cnt + 1
         if (cnt > cntmax): cntmax = cnt
-
     return cntmax
 
 def main():
 
-    # pesme bi trebalo da budu u wav formatu
+    # the songs should be in .wav format
 
     directory_path = 'data'
 
-    # isecak bi trebalo da bude duzi od 5s
+    # the recording shouldn't be longer than 5s 
     recording_path = 'dataCut/cut(EKV Zemlja).wav'
     #recording_path = 'dataCut/cut(Crazy on you).wav'
     #recording_path = 'dataCut/cut(Since you be gone).wav'
     #recording_path = 'dataCut/cut2(Since you be gone).wav'
-    #recording_path = 'dataCut/wrongCut.wav'    # nema pesme u bazi
+    #recording_path = 'dataCut/wrongCut.wav'    # the song is not in a database
 
     songs = []
     for filename in os.listdir(directory_path):
@@ -90,7 +89,7 @@ def main():
             song_features = findFeatures(song_path)
             songs.append({'path': song_path, 'features': song_features, 'matches': 0})
 
-    print("\nIsecak")
+    print("\nCut")
     recording_features = findFeatures(recording_path,True)
 
     max_matches = 0
@@ -101,10 +100,10 @@ def main():
             max_matches = matches
             final_song = song['path']
 
-    if ( max_matches > 100) : print("\nDobijena pesma: " + final_song)
+    if ( max_matches > 100) : print("\nMatches: " + final_song)
     else: print("No matches")
-    # print(max_matches) max_matches varira od 0 do 200 => u proseku je preko 130 ako ima pesme u bazi
-    # ukoliko postoji pesma, a ipak je ne prepoznaje => treba smanjiti kriterijum za max_matches
+    # print(max_matches) max_matches value goes from 0 to 200 => usually the value is over 130 if the song is in database
+    # if the song is in database, but it's not recognized => max_mathes value should have a smaller value
 
 
 if __name__ == '__main__':
